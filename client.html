@@ -1,0 +1,30 @@
+<button id="btnDownload">Download</button>
+
+<script type="text/javascript">
+  const request = {
+    method: 'POST',
+    mode: 'no-cors',
+    body: JSON.stringify({ color: 'blue' }),
+  };
+
+  document.getElementById('btnDownload').onclick = () => {
+    fetch(
+      'http://localhost:3001/screenshot?color=blue&width=800&height=600',
+      {}
+    )
+      .then(res => res.blob())
+      .then(data => {
+        const url = URL.createObjectURL(data);
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = 'image.png';
+        link.click();
+      });
+    //   .then(content => {
+    //     uriContent =
+    //       'data:application/octet-stream,' + encodeURIComponent(content);
+
+    //     newWindow = window.open(uriContent, 'somefile');
+    //   });
+  };
+</script>
