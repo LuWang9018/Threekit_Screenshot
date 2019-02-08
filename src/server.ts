@@ -1,16 +1,19 @@
-const Koa = require('koa');
-const Router = require('koa-router');
-const Send = require('koa-send');
-const puppeteer = require('puppeteer');
-const fs = require('fs');
-const cors = require('koa2-cors');
-
-import { snapshot } from './takeSnapshot';
+import * as Koa from 'koa';
+import * as Router from 'koa-router';
+import * as Send from 'koa-send';
+import * as puppeteer from 'puppeteer';
+import * as fs from 'fs';
+import * as cors from 'koa2-cors';
+import { spawn } from 'child_process';
+import * as os from 'os';
+import * as uuidV4 from 'uuid/v4';
 
 const app = new Koa();
 app.use(cors({ credentials: true }));
 const router = new Router();
 const playerjs = { url: 'https://clara.io/js/claraplayer.min.js' };
+const snapshotExecutable = './src/takeSnapshot.ts';
+const tmpdir = os.tmpdir().toString();
 
 //=====================================================================================================
 //RegExp for input check
@@ -26,7 +29,7 @@ export enum supportedImageType {
   gif = 'gif',
 }
 
-export interface screenshotAttrs {
+export interface screenshotAttrs extends puppeteer.JSONObject {
   width: number;
   height: number;
   color: string;
@@ -38,7 +41,7 @@ export interface inputCheckResult {
   msg: string;
 }
 
-export interface claraScreenshotAttrs {
+export interface claraScreenshotAttrs extends puppeteer.JSONObject {
   url: string;
   uuid: string;
   width: number;
@@ -123,7 +126,7 @@ function inputCheck(attrs: any): inputCheckResult {
   };
 }
 
-async function screenshot(attrs: screenshotAttrs) {
+async function canvasScreenshot(attrs: screenshotAttrs) {
   //page.setViewport({ width: width, height: height });
 
   try {
@@ -144,6 +147,7 @@ async function screenshot(attrs: screenshotAttrs) {
 router.get('/image', async (ctx: any) => {
   try {
     const query = ctx.request.query;
+    console.log('query contents');
     console.log(query);
     //input check
     inputCheck(query);
@@ -161,24 +165,58 @@ router.get('/image', async (ctx: any) => {
       uuid: query.uuid,
     };
 
-    //const canvas = ctx.body.createElement('canvas');
-
+    const imageName: string = uuidV4();
+    const filePath: string = tmpdir + '/' + imageName + '.' + query.type;
     //puppeteer
+
+    // console.log('attrs: ', attrs);
+    console.log('filePath: ', filePath);
+
     try {
-      const snapshotIns: snapshot = new snapshot(attrs);
-      console.log('111111111111');
-      await snapshotIns.loadTemplatePage();
-      console.log('22222222222222');
-      await snapshotIns.initializePlayer();
-      await snapshotIns.loadScene();
-      console.log('333333333333333333');
-      await snapshotIns.snapshot();
+      var env = {
+        NODE_VERSION: process.env.NODE_VERSION,
+        DISPLAY: process.env.DISPLAY,
+        XAUTHORITY: process.env.XAUTHORITY,
+        PATH: process.env.PATH,
+      };
+
+      console.log(process.env.DISPLAY);
+      let claraScreenshot = spawn(
+        'ts-node',
+        [snapshotExecutable, JSON.stringify(attrs), '"' + filePath + '"'],
+        { env }
+      );
+
+      claraScreenshot.stdout.on('data', function(data: any) {
+        console.log('stdout: ', data.toString());
+      });
+
+      claraScreenshot.stderr.on('data', function(data: any) {
+        console.log('stderr: ', data.toString());
+      });
+
+      claraScreenshot.on('error', function(data: any) {
+        console.log('stderr: ', data.toString());
+      });
+
+      let finishEvent = new Promise(resolve => {
+        claraScreenshot.on('close', async function(code: any) {
+          console.log('query.type', query.type);
+
+          await Send(ctx, filePath, { root: '/' });
+          fs.unlinkSync(filePath);
+          console.log('close', code);
+          resolve();
+        });
+      });
+
+      await finishEvent;
     } catch (err) {
       console.log(err);
     }
 
     //send image back
-    await Send(ctx, './image.' + query.type);
+    //
   } catch (err) {
     if (err.code) {
       ctx.throw(err.code, {
@@ -223,7 +261,7 @@ router.get('/canvasTest', async (ctx: any) => {
 
     //puppeteer
     try {
-      await screenshot(attrs);
+      await canvasScreenshot(attrs);
     } catch (err) {
       console.log(err);
     }

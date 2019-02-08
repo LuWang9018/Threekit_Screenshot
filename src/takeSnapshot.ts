@@ -1,5 +1,5 @@
-const puppeteer = require('puppeteer');
-const fs = require('fs');
+import * as puppeteer from 'puppeteer';
+import * as fs from 'fs';
 
 import {
   claraScreenshotAttrs,
@@ -19,13 +19,15 @@ export class snapshot {
   browser: any;
   page: any;
   api: any;
+  filePath: string;
 
-  constructor(attrs: claraScreenshotAttrs) {
+  constructor(attrs: claraScreenshotAttrs, filePath: string) {
     this.attrs = attrs;
+    this.filePath = filePath;
   }
   // 1. load template html page snapshot-template.html
   async loadTemplatePage() {
-    console.log('>>>>>>>>>>>>>>');
+    console.log('loadTemplatePage: launch');
     this.browser = await puppeteer.launch({
       headless: false,
       args: [
@@ -36,7 +38,7 @@ export class snapshot {
         '--disable-setuid-sandbox',
       ],
     });
-    console.log('@@@@@@@@@@@@@@@@@@@@@@@@@@');
+    console.log('loadTemplatePage: newpage');
     this.page = await this.browser.newPage();
 
     function describe(jsHandle: any) {
@@ -60,7 +62,7 @@ export class snapshot {
       const args = await Promise.all(
         msg.args().map((arg: any) => describe(arg))
       );
-      console.log(msg.text(), ...args);
+      //console.log(msg.text(), ...args);
     });
 
     const playerjs = { url: this.attrs.url };
@@ -109,7 +111,32 @@ export class snapshot {
     const buffer = new Buffer(dataUrl.split(',')[1], 'base64');
 
     //const { buffer } = parseDataUrl(dataUrl);
-    fs.writeFileSync('image.' + this.attrs.type, buffer);
+    //
+    fs.writeFileSync(this.filePath, buffer);
+
     await this.browser.close();
   }
 }
+
+async function takeSnapshot(attrs: any, filePath: any) {
+  const snapshotIns: snapshot = new snapshot(attrs, filePath);
+  console.log('Snapshot instance created');
+  await snapshotIns.loadTemplatePage();
+  console.log('Template page loaded');
+  await snapshotIns.initializePlayer();
+  console.log('Player initialized');
+  await snapshotIns.loadScene();
+  console.log('Scene loaded');
+  await snapshotIns.snapshot();
+  console.log('Snapshot taken');
+}
+
+async function main() {
+  const attrs: claraScreenshotAttrs = JSON.parse(process.argv[2]);
+  const filePath: string = JSON.parse(process.argv[3]);
+
+  await takeSnapshot(attrs, filePath);
+  //await process.send('abcdef');
+}
+
+main();
