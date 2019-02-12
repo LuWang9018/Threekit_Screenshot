@@ -30,9 +30,3 @@ EXPOSE 3000
 # We run a fake display and run our script.
 # Start script on Xvfb
 CMD [ "npm", "run", "watch-server"]
-#CMD ["google-chrome-unstable"]
-
-
-
-
-Collapse 

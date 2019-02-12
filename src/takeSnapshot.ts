@@ -7,8 +7,10 @@ import {
   parseDataUrl,
 } from './server';
 
-const writeFilePromisitied = util.promisify(fs.writeFile);
-
+const writeFilePromisitiedVar = util.promisify(fs.writeFile);
+async function writeFilePromisitied(path: string, buffer: any) {
+  const;
+}
 interface Window {
   claraplayer: (id: string, attrs: any) => {};
   claraApi: any;
@@ -119,7 +121,8 @@ export class snapshot {
 
     //const { buffer } = parseDataUrl(dataUrl);
     //
-    fs.writeFileSync(this.filePath, buffer);
+    //fs.writeFileSync(this.filePath, buffer);
+    writeFilePromisitied();
 
     await this.browser.close();
   }
