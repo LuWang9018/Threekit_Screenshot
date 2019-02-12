@@ -1,11 +1,13 @@
 import * as puppeteer from 'puppeteer';
 import * as fs from 'fs';
-
+import * as util from 'util';
 import {
   claraScreenshotAttrs,
   supportedImageType,
   parseDataUrl,
 } from './server';
+
+const writeFilePromisitied = util.promisify(fs.writeFile);
 
 interface Window {
   claraplayer: (id: string, attrs: any) => {};
@@ -65,9 +67,9 @@ export class snapshot {
       //console.log(msg.text(), ...args);
     });
 
-    const playerjs = { url: this.attrs.url };
+    //const playerjs = { url: this.attrs.url };
 
-    console.log(playerjs);
+    //console.log(playerjs);
     const { height, width } = this.attrs;
 
     // 3. adjust div size to given parameters
@@ -76,7 +78,8 @@ export class snapshot {
     );
 
     // 2. add clara player script tag, wait for it to load
-    await this.page.addScriptTag(playerjs);
+    await this.page.addScriptTag(this.attrs.url);
+    console.log('loadTemplatePage: finish');
   }
 
   // 4. initial clara player on main div
@@ -90,10 +93,14 @@ export class snapshot {
 
   // 5. load scene specified and wait for it to finish loading
   async loadScene() {
-    await this.page.evaluate(async function(attrs: claraScreenshotAttrs) {
-      await this.api.initializePlayer(attrs.uuid, attrs);
-      await this.api.waitFor('rendered');
-    }, this.attrs);
+    try {
+      await this.page.evaluate(async function(attrs: claraScreenshotAttrs) {
+        await this.api.initializePlayer(attrs.uuid, attrs);
+        await this.api.waitFor('rendered');
+      }, this.attrs);
+    } catch (err) {
+      console.log('loadscene err: ', err);
+    }
   }
 
   // 6. do a snapshot and return the data.
@@ -125,7 +132,9 @@ async function takeSnapshot(attrs: any, filePath: any) {
   console.log('Template page loaded');
   await snapshotIns.initializePlayer();
   console.log('Player initialized');
+
   await snapshotIns.loadScene();
+
   console.log('Scene loaded');
   await snapshotIns.snapshot();
   console.log('Snapshot taken');

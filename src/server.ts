@@ -8,17 +8,14 @@ import { spawn } from 'child_process';
 import * as os from 'os';
 import * as uuidV4 from 'uuid/v4';
 
+import { inputCheck, parseQuery } from './parsequery';
+
 const app = new Koa();
 app.use(cors({ credentials: true }));
 const router = new Router();
 const playerjs = { url: 'https://clara.io/js/claraplayer.min.js' };
 const snapshotExecutable = './src/takeSnapshot.ts';
 const tmpdir = os.tmpdir().toString();
-
-//=====================================================================================================
-//RegExp for input check
-//=====================================================================================================
-const numRegExp = /^[1-9]\d*$/;
 
 //=====================================================================================================
 //types
@@ -36,18 +33,14 @@ export interface screenshotAttrs extends puppeteer.JSONObject {
   type: supportedImageType;
 }
 
-export interface inputCheckResult {
-  code: number;
-  msg: string;
-}
-
 export interface claraScreenshotAttrs extends puppeteer.JSONObject {
   url: string;
   uuid: string;
   width: number;
   height: number;
-  color: string;
+  color?: string;
   type: supportedImageType;
+  configuration?: any;
 }
 //=====================================================================================================
 //helpers
@@ -75,57 +68,6 @@ const getDataUrlThroughCanvas = async (attrs: screenshotAttrs) => {
   return canvas.toDataURL();
 };
 
-function getEnumValue(attrs: screenshotAttrs) {
-  if (!Object.values(supportedImageType).includes(attrs.type)) {
-    return false;
-  }
-
-  return true;
-}
-
-function inputCheck(attrs: any): inputCheckResult {
-  if (attrs.width) {
-    if (
-      !attrs.width.match(numRegExp) ||
-      <number>attrs.width > 10000 ||
-      <number>attrs.width < 1
-    ) {
-      throw {
-        code: 400,
-        msg: 'Width need to be number.',
-      };
-    }
-  }
-
-  if (attrs.height) {
-    if (
-      !attrs.height.match(numRegExp) ||
-      <number>attrs.height > 10000 ||
-      <number>attrs.height < 1
-    ) {
-      throw {
-        code: 400,
-        msg: 'Height need to be number.',
-      };
-    }
-  }
-
-  //TODO
-  //check color
-
-  //check image type
-  if (!getEnumValue(attrs)) {
-    throw {
-      code: 400,
-      msg: 'Given type does not support.',
-    };
-  }
-  return {
-    code: 1,
-    msg: 'success',
-  };
-}
-
 async function canvasScreenshot(attrs: screenshotAttrs) {
   //page.setViewport({ width: width, height: height });
 
@@ -147,23 +89,13 @@ async function canvasScreenshot(attrs: screenshotAttrs) {
 router.get('/image', async (ctx: any) => {
   try {
     const query = ctx.request.query;
+
     console.log('query contents');
     console.log(query);
-    //input check
-    inputCheck(query);
 
-    ctx.body = ctx.request.query;
-    ctx.type = 'image/' + query.type;
-    let attrs: claraScreenshotAttrs = {
-      width: <number>query.width,
-      height: <number>query.height,
-      color: <string>query.color,
-      type: query.type
-        ? <supportedImageType>query.type
-        : supportedImageType.png,
-      url: query.url,
-      uuid: query.uuid,
-    };
+    let attrs = parseQuery(query);
+    console.log('parced query');
+    console.log(attrs);
 
     const imageName: string = uuidV4();
     const filePath: string = tmpdir + '/' + imageName + '.' + query.type;
@@ -214,9 +146,6 @@ router.get('/image', async (ctx: any) => {
     } catch (err) {
       console.log(err);
     }
-
-    //send image back
-    //
   } catch (err) {
     if (err.code) {
       ctx.throw(err.code, {

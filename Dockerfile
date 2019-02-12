@@ -1,6 +1,6 @@
-FROM ubuntu:16.04
+FROM clara-base
 
-
+RUN echo "htllo"
 RUN apt-get update
 RUN apt-get install -y build-essential
 RUN apt-get install -y curl
@@ -18,17 +18,21 @@ WORKDIR /app
 COPY package.json /app
 
 # Install dependencies
-RUN npm install 
+RUN npm install
 
 COPY . /app
 
 # Start server on port 3000
 EXPOSE 3000
 
-# I'll also assume you are going to use root user, 
+# I'll also assume you are going to use root user,
 # and your script has `--no-sandbox` and `--disable-setuid-sandbox` arguments.
 # We run a fake display and run our script.
 # Start script on Xvfb
 CMD [ "npm", "run", "watch-server"]
 #CMD ["google-chrome-unstable"]
 
+
+
+
+Collapse 
