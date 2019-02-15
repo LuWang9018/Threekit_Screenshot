@@ -7,10 +7,8 @@ import {
   parseDataUrl,
 } from './server';
 
-const writeFilePromisitiedVar = util.promisify(fs.writeFile);
-async function writeFilePromisitied(path: string, buffer: any) {
-  const;
-}
+const writeFilePromisitied = util.promisify(fs.writeFile);
+
 interface Window {
   claraplayer: (id: string, attrs: any) => {};
   claraApi: any;
@@ -61,12 +59,13 @@ export class snapshot {
     }
 
     this.page.on('console', async (msg: any) => {
-      let msgType = msg.type();
-      msgType = msgType === 'warning' ? 'warn' : msgType;
-      const args = await Promise.all(
-        msg.args().map((arg: any) => describe(arg))
-      );
+      // let msgType = msg.type();
+      // msgType = msgType === 'warning' ? 'warn' : msgType;
+      // const args = await Promise.all(
+      //   msg.args().map((arg: any) => describe(arg))
+      // );
       //console.log(msg.text(), ...args);
+      console.log(msg);
     });
 
     //const playerjs = { url: this.attrs.url };
@@ -122,7 +121,7 @@ export class snapshot {
     //const { buffer } = parseDataUrl(dataUrl);
     //
     //fs.writeFileSync(this.filePath, buffer);
-    writeFilePromisitied();
+    const msg = await writeFilePromisitied(this.filePath, buffer);
 
     await this.browser.close();
   }

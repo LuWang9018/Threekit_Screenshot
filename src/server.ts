@@ -4,9 +4,10 @@ import * as Send from 'koa-send';
 import * as puppeteer from 'puppeteer';
 import * as fs from 'fs';
 import * as cors from 'koa2-cors';
-import { spawn } from 'child_process';
+import { spawn, exec } from 'child_process';
 import * as os from 'os';
 import * as uuidV4 from 'uuid/v4';
+const Metrics = require('threekit-browser-metrics').default;
 
 import { inputCheck, parseQuery } from './parsequery';
 
@@ -18,6 +19,21 @@ const snapshotExecutable = './src/takeSnapshot.ts';
 const tmpdir = os.tmpdir().toString();
 
 //=====================================================================================================
+//Prometheus
+//=====================================================================================================
+const options = {
+  pushgateway:
+    'https://threekit-core-clients-metrics-staging.core.mythreekit.com',
+};
+
+const metrics = new Metrics(options);
+metrics.initMetrics(
+  'counter',
+  'snapshot respones time',
+  'Meterics for snapshot server'
+);
+
+//=====================================================================================================
 //types
 //=====================================================================================================
 export enum supportedImageType {
@@ -26,14 +42,14 @@ export enum supportedImageType {
   gif = 'gif',
 }
 
-export interface screenshotAttrs extends puppeteer.JSONObject {
+export interface screenshotAttrs {
   width: number;
   height: number;
   color: string;
   type: supportedImageType;
 }
 
-export interface claraScreenshotAttrs extends puppeteer.JSONObject {
+export interface claraScreenshotAttrs {
   url: string;
   uuid: string;
   width: number;
@@ -87,11 +103,10 @@ async function canvasScreenshot(attrs: screenshotAttrs) {
 //clara screenshot
 //=====================================================================================================
 router.get('/image', async (ctx: any) => {
+  const startTime: Date = new Date();
+
   try {
     const query = ctx.request.query;
-
-    console.log('query contents');
-    console.log(query);
 
     let attrs = parseQuery(query);
     console.log('parced query');
@@ -112,7 +127,6 @@ router.get('/image', async (ctx: any) => {
         PATH: process.env.PATH,
       };
 
-      console.log(process.env.DISPLAY);
       let claraScreenshot = spawn(
         'ts-node',
         [snapshotExecutable, JSON.stringify(attrs), '"' + filePath + '"'],
@@ -136,7 +150,15 @@ router.get('/image', async (ctx: any) => {
           console.log('query.type', query.type);
 
           await Send(ctx, filePath, { root: '/' });
-          fs.unlinkSync(filePath);
+          //fs.unlinkSync(filePath);
+          const timeSpend = new Date().getTime() - startTime.getTime();
+          metrics.increment(
+            'snapshot respones time',
+            { env: 'test' },
+            timeSpend
+          );
+          metrics.push();
+
           console.log('close', code);
           resolve();
         });
